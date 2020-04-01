@@ -1,15 +1,16 @@
 
 
-import numpy as np
-import  tensorflow as tf
+
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import  Input,Dense,Conv2D,GlobalAveragePooling2D,BatchNormalization, Conv2DTranspose
 from tensorflow.keras.layers import  LeakyReLU,ReLU,Dropout,Flatten
 from tensorflow.keras.initializers import RandomNormal,Constant
 from tensorflow.keras import  layers
+from tensorflow.keras import metrics
 from tensorflow.keras.activations import sigmoid
 from tensorflow import  keras
 import tensorflow as tf
+
 
 tf.enable_eager_execution()
 
@@ -17,16 +18,14 @@ class Generator(Model):
     def __init__(self):
         super(Generator, self).__init__()
         self.dense = Dense(7*7*256)
-        self.bn1 = BatchNormalization()
-        self.bn2 = BatchNormalization()
+        self.bn1  = BatchNormalization()
+        self.bn2  = BatchNormalization()
         self.bn3 = BatchNormalization()
         self.relu = ReLU()
-        self.reshape = layers.Reshape((7,7,256))
-        self.conv2dT1 = Conv2DTranspose(128,5,1,padding='same',use_bias=False)
-        self.conv2dT2 = Conv2DTranspose(64,5,2,padding='same',use_bias=False)
-        self.conv2dT3 = Conv2DTranspose(1,5,2,padding='same',use_bias=False)
-        #self.flatten = Flatten()
-        #self.dense2 = Dense()
+        self.reshape = layers.Reshape((7 , 7, 256))
+        self.conv2dT1 = Conv2DTranspose(128, 5, 1, padding='same', use_bias=False)
+        self.conv2dT2 = Conv2DTranspose(64, 5, 2, padding='same', use_bias=False)
+        self.conv2dT3 = Conv2DTranspose(1, 5, 2, padding='same', use_bias=False)
 
     def call(self, inputs, training=None):
         x = self.dense(inputs)
@@ -46,8 +45,8 @@ class Discriminator(Model):
     def __init__(self):
         super(Discriminator, self).__init__()
 
-        self.conv1 = Conv2D(64,5,2,padding='same')
-        self.conv2 = Conv2D(128,5,2,padding='same')
+        self.conv1 = Conv2D(64, 5, 2, padding='same')
+        self.conv2 = Conv2D(128, 5, 2, padding='same')
         self.relu = ReLU()
         self.dropout1 = Dropout(0.2)
         self.dropout2 = Dropout(0.2)
@@ -95,10 +94,14 @@ def get_mnist():
 BUFFER_SIZE = 60000
 BATCH_SIZE = 256
 LATENT_DIM = 100
+EPOCHS = 20
+
+G_LOSS_METRIC = metrics.Mean('g_loss', dtype=tf.float32)
+D_LOSS_METRIC = metrics.Mean('d_loss', dtype=tf.float32)
+
 
 d_optimizer = keras.optimizers.Adam(1e-4)
 g_optimizer = keras.optimizers.Adam(1e-4)
-
 
 generator = Generator()
 discriminator = Discriminator()
@@ -112,21 +115,29 @@ def train_one_step(images):
         fake_pred = discriminator(fake_imgs, training=True)
 
         g_loss = generator_loss(fake_imgs)
-        d_loss = discriminator_loss(real_pred,fake_pred)
-        tf.print(g_loss,d_loss)
+        d_loss = discriminator_loss(real_pred, fake_pred)
 
     g_grad = g_tape.gradient(g_loss, generator.trainable_variables)
     d_grad = d_tape.gradient(d_loss, discriminator.trainable_variables)
     g_optimizer.apply_gradients(zip(g_grad, generator.trainable_variables))
     d_optimizer.apply_gradients(zip(d_grad, discriminator.trainable_variables))
 
-def train():
-    epochs = 10
-    dataste = get_mnist()
+    G_LOSS_METRIC(g_loss)
+    D_LOSS_METRIC(d_loss)
 
-    for epoch in range(epochs):
-        for img_batch in dataste:
+
+def train():
+    dataste = get_mnist()
+    for epoch in range(EPOCHS):
+        for step, img_batch in enumerate(dataste):
             train_one_step(img_batch)
+
+            if step%10 == 0:
+                print('Epoch: {}\tstep: {}\tg_loss: {:.4f}\td_loss: {:.4f}'.format(epoch,
+                                                                           step,
+                                                                           G_LOSS_METRIC.result(),
+                                                                           D_LOSS_METRIC.result()))
+
 
 train()
 
