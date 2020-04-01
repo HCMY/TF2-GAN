@@ -2,12 +2,10 @@
 
 
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import  Input,Dense,Conv2D,GlobalAveragePooling2D,BatchNormalization, Conv2DTranspose
-from tensorflow.keras.layers import  LeakyReLU,ReLU,Dropout,Flatten
-from tensorflow.keras.initializers import RandomNormal,Constant
+from tensorflow.keras.layers import Dense,Conv2D,BatchNormalization, Conv2DTranspose
+from tensorflow.keras.layers import ReLU,Dropout,Flatten
 from tensorflow.keras import  layers
 from tensorflow.keras import metrics
-from tensorflow.keras.activations import sigmoid
 from tensorflow import  keras
 import tensorflow as tf
 
@@ -15,6 +13,11 @@ import tensorflow as tf
 tf.enable_eager_execution()
 
 class Generator(Model):
+    """
+    generator images via Generator
+    input: noise[batch,latent dim]
+    output: fake image[batch, 28,28,1]
+    """
     def __init__(self):
         super(Generator, self).__init__()
         self.dense = Dense(7*7*256)
@@ -42,6 +45,11 @@ class Generator(Model):
         return x
 
 class Discriminator(Model):
+    """
+    determine whether ths input images comes from real or fake(generated)
+    input: mnist-like image
+    output: binary label, real or fake
+    """
     def __init__(self):
         super(Discriminator, self).__init__()
 
@@ -51,7 +59,7 @@ class Discriminator(Model):
         self.dropout1 = Dropout(0.2)
         self.dropout2 = Dropout(0.2)
         self.flatten = Flatten()
-        self.dense = Dense(1)
+        self.dense = Dense(1, activation='sigmoid')
 
     def call(self, inputs, training=None, mask=None):
         x = self.conv1(inputs)
@@ -63,7 +71,7 @@ class Discriminator(Model):
         x = self.flatten(x)
         x = self.dense(x)
 
-        return  x
+        return x
 
 
 def generator_loss(fake_label):
