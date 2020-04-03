@@ -8,6 +8,7 @@ from tensorflow.keras import  layers
 from tensorflow.keras import metrics
 from tensorflow import  keras
 import tensorflow as tf
+from tensorflow.keras.losses import BinaryCrossentropy
 
 
 tf.enable_eager_execution()
@@ -74,20 +75,17 @@ class Discriminator(Model):
         return x
 
 
-def generator_loss(fake_label):
-    g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(fake_label),
-                                                                    logits=fake_label))
+def adv_loss(d_real_label, d_fake_label):
+    bce = BinaryCrossentropy(from_logits=True)
+    d_loss_real = bce(tf.ones_like(d_real_label), d_real_label)
+    d_loss_fake = bce(tf.zeros_like(d_fake_label), d_fake_label)
+    d_loss = (d_loss_real+d_loss_fake)/2.0
 
-    return g_loss
+    g_loss = bce(tf.ones_like(d_fake_label), d_fake_label)
 
-def discriminator_loss(real_label, fake_label):
-    d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(real_label),
-                                                                         logits=real_label))
-    d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(fake_label),
-                                                                         logits=fake_label))
-    d_loss = d_loss_fake+d_loss_real
+    return  d_loss, g_loss
 
-    return  d_loss
+
 
 
 def get_mnist():
@@ -122,8 +120,7 @@ def train_one_step(images):
         real_pred = discriminator(images, training=True)
         fake_pred = discriminator(fake_imgs, training=True)
 
-        g_loss = generator_loss(fake_imgs)
-        d_loss = discriminator_loss(real_pred, fake_pred)
+        d_loss, g_loss = adv_loss(d_real_label=real_pred, d_fake_label=fake_pred)
 
     g_grad = g_tape.gradient(g_loss, generator.trainable_variables)
     d_grad = d_tape.gradient(d_loss, discriminator.trainable_variables)
